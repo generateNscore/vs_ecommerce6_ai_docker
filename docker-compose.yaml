@@ -1,0 +1,62 @@
+services:
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    # volumes:
+    #   - .:/app
+    env_file:
+      - .env
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434/v1
+      - LLM_MODEL=qwen2.5-coder:7b
+    depends_on:
+      db:
+        condition: service_healthy
+      ollama:
+        condition: service_started # service_healthy
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+    #   interval: 10s
+    #   retries: 20
+    #   start_period: 60s
+    # # GPU가 있으면 자동으로 쓰고, 없으면 CPU로 동작 - 포트폴리오 최적화
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+    # # 컨테이너 시작 시 모델 자동 다운로드
+    # entrypoint: /bin/sh -c "ollama serve & sleep 5 && ollama pull qwen2.5-coder:7b && wait"
+
+  db:
+    image: postgres:16-alpine
+
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    # env_file:
+    #   -.env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  ollama_data:
+
